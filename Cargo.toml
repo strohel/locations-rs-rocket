@@ -1,5 +1,5 @@
 [package]
-name = "locations-rs"
+name = "locations-rs-rocket"
 version = "0.1.0"
 authors = ["Matěj Laitl <matej@laitl.cz>"]
 edition = "2018"
