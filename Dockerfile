@@ -1,5 +1,5 @@
 # Build image.
-FROM rust:1.45 as build
+FROM instrumentisto/rust:nightly-2020-08-26 as build
 
 RUN rustc --version
 
@@ -7,7 +7,7 @@ RUN rustc --version
 COPY ./ ./
 
 # Compile in release mode and put the binary into /install/.
-RUN RUSTFLAGS="-C target-cpu=skylake" cargo install --frozen --path . --root /install
+RUN RUSTFLAGS="-C target-cpu=skylake" cargo install --locked --path . --root /install
 
 # Production image. Shrinking possibility: https://alexbrand.dev/post/how-to-package-rust-applications-into-minimal-docker-containers/
 FROM bitnami/minideb:buster
