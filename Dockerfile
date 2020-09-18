@@ -15,9 +15,10 @@ FROM bitnami/minideb:buster
 # Install runtime dependencies; install_packages provided by https://github.com/bitnami/minideb
 RUN install_packages dumb-init libssl1.1 libcurl4
 
-COPY --from=build /install/bin/locations-rs /
+COPY --from=build /install/bin/locations-rs-rocket /
+COPY Rocket.toml /
 
 # Use dumb-init to correctly handle signals in PID 1.
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
-CMD ["/locations-rs"]
+CMD ["/locations-rs-rocket"]
