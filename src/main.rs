@@ -74,17 +74,15 @@ fn main() {
         .launch();
 }
 
-struct App {
-    elasticsearch: Elasticsearch,
-}
+struct App {}
 
 type AppState<'a> = State<'a, App>;
 
 impl App {
     fn new() -> Self {
-        let elasticsearch = create_async_rt().block_on(stateful::elasticsearch::new());
+        create_async_rt().block_on(stateful::elasticsearch::new()); // ping Elastic or panic
 
-        Self { elasticsearch }
+        Self {}
     }
 
     /// Run given future in async runtime and block current thread until it resolves.
@@ -102,7 +100,7 @@ fn create_async_rt() -> Runtime {
 }
 
 impl WithElastic for AppState<'_> {
-    fn elasticsearch(&self) -> &Elasticsearch {
-        &self.elasticsearch
+    fn elasticsearch(&self) -> Elasticsearch {
+        stateful::elasticsearch::new_pingless()
     }
 }

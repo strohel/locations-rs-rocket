@@ -1,16 +1,13 @@
 //! Stateless Locations repository backed by Elasticsearch.
 
-use crate::{
-    response::{
-        ErrorResponse::{InternalServerError, NotFound},
-        HandlerResult,
-    },
-    stateful::elasticsearch::WithElastic,
+use crate::response::{
+    ErrorResponse::{InternalServerError, NotFound},
+    HandlerResult,
 };
 use dashmap::DashMap;
 use elasticsearch::{
     http::{response::Response as EsResponse, StatusCode},
-    Error as EsError,
+    Elasticsearch, Error as EsError,
     GetParts::IndexTypeId,
     SearchParts::Index,
 };
@@ -62,10 +59,10 @@ impl Coordinates {
 }
 
 /// Repository of Elastic City, Region Locations entities. Thin wrapper around app state.
-pub(crate) struct LocationsElasticRepository<'a, S: WithElastic>(pub(crate) &'a S);
+pub(crate) struct LocationsElasticRepository(pub(crate) Elasticsearch);
 
 // Actual implementation of Locations repository on any app state that impleents [WithElasticsearch].
-impl<S: WithElastic> LocationsElasticRepository<'_, S> {
+impl LocationsElasticRepository {
     /// Get [ElasticCity] from Elasticsearch given its `id`. Async.
     pub(crate) async fn get_city(&self, id: u64) -> HandlerResult<ElasticCity> {
         self.get_entity(id, CITY_INDEX, "City").await
@@ -236,7 +233,7 @@ impl<S: WithElastic> LocationsElasticRepository<'_, S> {
         index_name: &str,
         entity_name: &str,
     ) -> HandlerResult<T> {
-        let es = self.0.elasticsearch();
+        let es = &self.0;
 
         let response = es
             .get(IndexTypeId(index_name, "_source", &id.to_string()))
@@ -256,7 +253,7 @@ impl<S: WithElastic> LocationsElasticRepository<'_, S> {
     }
 
     async fn search_city(&self, body: JsonValue, size: i64) -> HandlerResult<Vec<ElasticCity>> {
-        let es = self.0.elasticsearch();
+        let es = &self.0;
 
         let response = es
             .search(Index(&[CITY_INDEX]))

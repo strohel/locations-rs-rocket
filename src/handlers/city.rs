@@ -54,12 +54,12 @@ type Parse<'f, T> = Result<LenientForm<T>, FormParseError<'f>>;
 #[get("/city/v1/get?<query..>")]
 pub(crate) fn get(query: Parse<'_, CityQuery>, app: AppState<'_>) -> JsonResult<CityResponse> {
     let query = query?;
-    let locations_es_repo = LocationsElasticRepository(&app);
+    let locations_es_repo = LocationsElasticRepository(app.elasticsearch());
 
     app.block_on(async {
         let es_city = locations_es_repo.get_city(query.id).await?;
 
-        Ok(Json(es_city.into_resp(&app, query.language).await?))
+        Ok(Json(es_city.into_resp(&locations_es_repo, query.language).await?))
     })
 }
 
@@ -85,7 +85,7 @@ pub(crate) fn featured(
     app: AppState<'_>,
 ) -> JsonResult<MultiCityResponse> {
     let query = query?;
-    let locations_es_repo = LocationsElasticRepository(&app);
+    let locations_es_repo = LocationsElasticRepository(app.elasticsearch());
 
     app.block_on(async {
         let mut es_cities = locations_es_repo.get_featured_cities().await?;
@@ -99,7 +99,7 @@ pub(crate) fn featured(
         };
         es_cities.sort_by_key(|c| Reverse(c.countryIso == preferred_country_iso));
 
-        es_cities_into_resp(&app, es_cities, query.language).await
+        es_cities_into_resp(&locations_es_repo, es_cities, query.language).await
     })
 }
 
@@ -125,14 +125,14 @@ pub(crate) fn search(
     app: AppState<'_>,
 ) -> JsonResult<MultiCityResponse> {
     let query = query?;
-    let locations_es_repo = LocationsElasticRepository(&app);
+    let locations_es_repo = LocationsElasticRepository(app.elasticsearch());
 
     app.block_on(async {
         let es_cities = locations_es_repo
             .search(&query.query, query.language, query.countryIso.as_deref())
             .await?;
 
-        es_cities_into_resp(&app, es_cities, query.language).await
+        es_cities_into_resp(&locations_es_repo, es_cities, query.language).await
     })
 }
 
@@ -169,7 +169,7 @@ pub(crate) fn closest(
     app: AppState<'_>,
 ) -> JsonResult<CityResponse> {
     let query = query?;
-    let locations_es_repo = LocationsElasticRepository(&app);
+    let locations_es_repo = LocationsElasticRepository(app.elasticsearch());
 
     app.block_on(async {
         let es_city = if let Some(coords) = query.coordinates()? {
@@ -188,7 +188,7 @@ pub(crate) fn closest(
             locations_es_repo.get_city(city_id).await?
         };
 
-        Ok(Json(es_city.into_resp(&app, query.language).await?))
+        Ok(Json(es_city.into_resp(&locations_es_repo, query.language).await?))
     })
 }
 
@@ -211,7 +211,7 @@ pub(crate) fn associated_featured(
     app: AppState<'_>,
 ) -> JsonResult<CityResponse> {
     let query = query?;
-    let locations_es_repo = LocationsElasticRepository(&app);
+    let locations_es_repo = LocationsElasticRepository(app.elasticsearch());
 
     app.block_on(async {
         let mut es_city = locations_es_repo.get_city(query.id).await?;
@@ -219,7 +219,7 @@ pub(crate) fn associated_featured(
             es_city = locations_es_repo.get_closest_city(es_city.centroid, Some(true)).await?;
         }
 
-        Ok(Json(es_city.into_resp(&app, query.language).await?))
+        Ok(Json(es_city.into_resp(&locations_es_repo, query.language).await?))
     })
 }
 
@@ -245,12 +245,11 @@ fn get_request_fastly_geo_coords(headers: &HeaderMap<'_>) -> Option<Coordinates>
 
 impl ElasticCity {
     /// Transform ElasticCity into CityResponse, fetching the region.
-    async fn into_resp<T: WithElastic>(
+    async fn into_resp(
         self,
-        app: &T,
+        locations_es_repo: &LocationsElasticRepository,
         language: Language,
     ) -> HandlerResult<CityResponse> {
-        let locations_es_repo = LocationsElasticRepository(app);
         let es_region = locations_es_repo.get_region(self.regionId).await?;
 
         let name_key = language.name_key();
@@ -270,13 +269,13 @@ impl ElasticCity {
 /// Convert a vector of [ElasticCity] into [MultiCityResponse], maintaining order and fetching
 /// required regions asynchronously all in parallel (which is somewhat redundant with
 /// [ElasticRegion] cache).
-async fn es_cities_into_resp<T: WithElastic>(
-    app: &T,
+async fn es_cities_into_resp(
+    locations_es_repo: &LocationsElasticRepository,
     es_cities: Vec<ElasticCity>,
     language: Language,
 ) -> JsonResult<MultiCityResponse> {
     let city_futures: FuturesOrdered<_> =
-        es_cities.into_iter().map(|it| it.into_resp(app, language)).collect();
+        es_cities.into_iter().map(|it| it.into_resp(locations_es_repo, language)).collect();
 
     city_futures.try_collect().await.map(|cities| Json(MultiCityResponse { cities }))
 }

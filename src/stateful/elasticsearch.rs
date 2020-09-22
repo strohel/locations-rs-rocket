@@ -7,7 +7,7 @@ use std::{env, thread};
 /// Trait to be implemented by application states that contain stateful Elasticsearch client.
 pub(crate) trait WithElastic {
     /// Get reference to stateful Elasticsearch client.
-    fn elasticsearch(&self) -> &Elasticsearch;
+    fn elasticsearch(&self) -> Elasticsearch;
 }
 
 pub(crate) fn new_pingless() -> Elasticsearch {
