@@ -1,6 +1,6 @@
 # locations-rs-rocket (Locations Service in Rust & Rocket)
 
-Little proof-of-concept webservice in Rust, using [Rocket](https://rocket.rs/) web framework.
+Small but production-ready webservice in Rust, using [Rocket](https://rocket.rs/) web framework.
 
 The service implements [an API specification](https://github.com/strohel/locations-rs/blob/master/api-spec.md) of one feature for
 [goout.net platform](https://goout.net/).
